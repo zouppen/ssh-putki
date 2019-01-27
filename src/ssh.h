@@ -1,0 +1,26 @@
+/* -*- mode: c; c-file-style: "linux" -*-
+ * Protocol numbers from
+ * https://github.com/openbsd/src/blob/master/usr.bin/ssh/PROTOCOL.mux
+ */
+
+#define MUX_MSG_HELLO		0x00000001
+#define MUX_C_NEW_SESSION	0x10000002
+#define MUX_C_ALIVE_CHECK	0x10000004
+#define MUX_C_TERMINATE		0x10000005
+#define MUX_C_OPEN_FWD		0x10000006
+#define MUX_C_CLOSE_FWD		0x10000007
+#define MUX_C_NEW_STDIO_FWD	0x10000008
+#define MUX_C_STOP_LISTENING	0x10000009
+#define MUX_S_OK		0x80000001
+#define MUX_S_PERMISSION_DENIED	0x80000002
+#define MUX_S_FAILURE		0x80000003
+#define MUX_S_EXIT_MESSAGE	0x80000004
+#define MUX_S_ALIVE		0x80000005
+#define MUX_S_SESSION_OPENED	0x80000006
+#define MUX_S_REMOTE_PORT	0x80000007
+#define MUX_S_TTY_ALLOC_FAIL	0x80000008
+
+#define MUX_FWD_LOCAL	1
+#define MUX_FWD_REMOTE	2
+#define MUX_FWD_DYNAMIC 3
+
