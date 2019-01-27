@@ -7,7 +7,31 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <stdint.h>
+#include <stdbool.h>
+#include <arpa/inet.h>
 #include "ssh.h"
+
+bool send_to_ssh(FILE *h, uint32_t length, const void *data);
+int read_from_ssh(FILE *h, uint32_t buf_size, void *buf);
+
+bool send_to_ssh(FILE *h, uint32_t length, const void *data)
+{
+	uint32_t length_net = htonl(length);
+	if (fwrite(&length_net, sizeof(length_net), 1, h) < 1) return false;
+	if (fwrite(data, length, 1, h) < 1) return false;
+	if (fflush(h) != 0) return false;
+	return true;
+}
+
+int read_from_ssh(FILE *h, uint32_t buf_size, void *buf)
+{
+	uint32_t length_net;
+	if (fread(&length_net, sizeof(length_net), 1, h) < 1) return -1;
+	uint32_t length = ntohl(length_net);
+	if (length > buf_size) return -2;
+	if (fread(buf, length, 1, h) < 1) return -1;
+	return length;
+}
 
 int main(int argc, char **argv)
 {
@@ -32,15 +56,22 @@ int main(int argc, char **argv)
 		err(2, "Unable to connect to socket '%s'", argv[1]);
 	}
 
+	FILE *h = fdopen(sock_ssh, "r+");
+	if (h == NULL) {
+		err(2, "Unable to handle socket");
+	}
+
 	// Saying hello with protocol version 4
 	
-	const char helloseq[] = {0x00, 0x00, 0x00, 0x08, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x04};
-	write(sock_ssh, helloseq, sizeof(helloseq));
+	const char helloseq[] = {0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x04};
+	if (!send_to_ssh(h, sizeof(helloseq), helloseq)) {
+		errx(3, "SSH socket write failed");
+	}
 
 	// Cutting some corners with the protocol
 	char reply[sizeof(helloseq)];
-	if (read(sock_ssh, reply, sizeof(reply)) <= 0) {
-		err(3, "Socket reply is too short");
+	if (read_from_ssh(h, sizeof(reply), reply) < 8) {
+		errx(3, "Didn't get enough data");
 	}
 
 	if (memcmp(helloseq, reply, sizeof(helloseq)) != 0) {
@@ -52,8 +83,9 @@ int main(int argc, char **argv)
 	printf("Prööt\n");
 
 	// dumppaa kaikki paske
-	uint8_t arvo;
-	while( read(sock_ssh, &arvo, 1) > 0) {
+	int arvo;
+	while((arvo = fgetc(h)) >= 0) {
 		printf("got %02x\n", arvo);
 	}
+	return 0;
 }
