@@ -63,8 +63,9 @@ int send_fd(int unix_sock, int fd)
 
 int main(int argc, char **argv)
 {
-	if (argc != 2) {
-		errx(1, "Missing ControlMaster socket name");
+	if (argc != 4) {
+		printf("Usage: %s controlmaster_socket host port\n", argv[0]);
+		exit(1);
 	}
 	
 	// Magic to create UNIX socket to SSH control master
@@ -107,8 +108,8 @@ int main(int argc, char **argv)
 	}
 
 	// Now we have an up and running SSH controlmaster connection
-	char host[] = "jonne.koodilehto.fi";
-	uint32_t port = 8822;
+	char *host = argv[2];
+	uint32_t port = atoi(argv[3]);
 
 	// Allocate 2*32bit integers and 3*null terminators
 	int host_len = strlen(host);
