@@ -133,7 +133,25 @@ int main(int argc, char **argv)
 	send_fd(sock_ssh, STDIN_FILENO);
 	send_fd(sock_ssh, STDOUT_FILENO);
 
-	printf("Prööt\n");
+	// Cutting some corners with the protocol
+	char reply2[256];
+	int reply2_len = read_from_ssh(h, sizeof(reply2), reply2);
+
+	if (reply2_len < 4) {
+		errx(3, "Didn't get enough data, got %d", reply2_len);
+	}
+
+	int retcode = ntohl(*(uint32_t*)reply2);
+	if (retcode == MUX_S_SESSION_OPENED) {
+		// All is fine
+		printf("Prööt\n");
+	} else if (retcode == MUX_S_FAILURE) {
+		fputs("Forwarding failed: ", stdout);
+		fwrite(reply2 + 12, ntohl(*(uint32_t*)(reply2 + 8)), 1, stdout);
+		fputs("\n", stdout);
+	} else {
+		errx(3, "Mysterious error code %08x", retcode);
+	}
 
 	// dumppaa kaikki paske
 	int arvo;
