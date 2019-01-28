@@ -2,6 +2,7 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <err.h>
 #include <unistd.h>
 #include <sys/socket.h>
@@ -13,6 +14,7 @@
 
 bool send_to_ssh(FILE *h, uint32_t length, const void *data);
 int read_from_ssh(FILE *h, uint32_t buf_size, void *buf);
+int send_fd(int unix_sock, int fd);
 
 bool send_to_ssh(FILE *h, uint32_t length, const void *data)
 {
@@ -31,6 +33,32 @@ int read_from_ssh(FILE *h, uint32_t buf_size, void *buf)
 	if (length > buf_size) return -2;
 	if (fread(buf, length, 1, h) < 1) return -1;
 	return length;
+}
+
+int send_fd(int unix_sock, int fd)
+{
+	// From https://blog.cloudflare.com/know-your-scm_rights/
+	struct iovec iov = {.iov_base = "\0", // Must send at least one byte
+			    .iov_len = 1};
+
+	union {
+		char buf[CMSG_SPACE(sizeof(fd))];
+		struct cmsghdr align;
+	} u;
+
+	struct msghdr msg = {.msg_iov = &iov,
+			     .msg_iovlen = 1,
+			     .msg_control = u.buf,
+			     .msg_controllen = sizeof(u.buf)};
+
+	struct cmsghdr *cmsg = CMSG_FIRSTHDR(&msg);
+	*cmsg = (struct cmsghdr){.cmsg_level = SOL_SOCKET,
+				 .cmsg_type = SCM_RIGHTS,
+				 .cmsg_len = CMSG_LEN(sizeof(fd))};
+
+	memcpy(CMSG_DATA(cmsg), &fd, sizeof(fd));
+
+	return sendmsg(unix_sock, &msg, 0);
 }
 
 int main(int argc, char **argv)
@@ -79,7 +107,32 @@ int main(int argc, char **argv)
 	}
 
 	// Now we have an up and running SSH controlmaster connection
-	
+	char host[] = "jonne.koodilehto.fi";
+	uint32_t port = 8822;
+
+	// Allocate 2*32bit integers and 3*null terminators
+	int host_len = strlen(host);
+	int all_len = 20 + host_len;
+	void *data = malloc(all_len);
+	if (data == NULL) {
+		err(4, "malloc failed");
+	}
+
+	// Fill in the data with this quite dangerous-looking pointer magic.
+	*((uint32_t*)(data+0)) = htonl(MUX_C_NEW_STDIO_FWD); // MUX_C_NEW_STDIO_FWD
+	*((uint32_t*)(data+4)) = 13;                         // request id
+	*((uint32_t*)(data+8)) = 0;                          // reserved
+	*((uint32_t*)(data+12)) = htonl(host_len);
+	strcpy((char*)(data+16), host);                      // connect host
+	*((uint32_t*)(data+16+host_len)) = htonl(port);      // connect port
+
+	if (!send_to_ssh(h, all_len, data)) {
+		errx(3, "SSH socket write failed");
+	}
+
+	send_fd(sock_ssh, STDIN_FILENO);
+	send_fd(sock_ssh, STDOUT_FILENO);
+
 	printf("Prööt\n");
 
 	// dumppaa kaikki paske
