@@ -1,0 +1,24 @@
+name:          ssh-putki
+version:       0.0.1
+synopsis:      SSH piping experiments
+description:   SSH piping experiments by Zouppen
+category:      Utils
+license:       GPL-3
+license-file:  LICENSE
+author:        Joel Lehtonen
+maintainer:    joel.lehtonen+sshputki@iki.fi
+build-type:    Simple
+cabal-version: >= 1.2
+source-repository head
+  type: git
+  location: git://github.com/zouppen/ssh-putki.git
+
+executable ssh-putki
+  hs-source-dirs: haskell-src
+  main-is:        Main.hs
+  c-sources:      haskell-src/send_fd.c
+  build-depends:  base >= 4.9.1.0,
+                  bytestring >= 0.10.8.1,
+                  binary >= 0.8.3.0,
+                  network >= 2.6.3.2 && < 3,
+                  unix >= 2.7.2.1
